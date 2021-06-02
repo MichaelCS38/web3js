@@ -1,48 +1,46 @@
-const Web3 = require('web3')
-const web3 = new Web3('https://ropsten.infura.io/v3/0203d78779ed4c379f52d14d09acd7e3')
+const Web3 = require("web3");
+const ABItoken = require("./abiTOKEN");
+const ApiCall = require('./NodejsCallApi')
+const http = require('http')
 
-const Tx = require('ethereumjs-tx').Transaction;
-const Account = require('./models/account');
-const db = require('./config/database')
+//MAINET
 
-// kết nối db
-db.connect();
+// const web3 = new Web3("https://bsc-dataseed1.binance.org:443");
+// const BNUtoken = "0x4954e0062e0a7668a2fe3df924cd20e6440a7b77";
 
-// transaction
-var send = function(addSend,addReceive,priKeySend){
-    web3.eth.getTransactionCount(addSend, (err, txCount) => {
-        // khởi tạo transaction
-        const txObj = {
-            nonce: web3.utils.toHex(txCount),
-            to: addReceive,
-            value: web3.utils.toHex(web3.utils.toWei('0.5', 'ether')),
-            gasLimit: web3.utils.toHex(21000),
-            gasPrice: web3.utils.toHex(web3.utils.toWei('10', 'gwei'))
-        }
-    
-        //đăng kí transaction
-        const tx = new Tx(txObj, {chain: 'ropsten', hardfork: 'petersburg'})
-        tx.sign(priKeySend)
-        const serializedTransaction = tx.serialize();
-        const raw = '0x' + serializedTransaction.toString('hex')
-    
-        // gửi transaction đã đăng kí
-        web3.eth.sendSignedTransaction(raw, (err, txHash) => {
-            if (err) {
-                console.error(err)
-                return
-                }
-            console.log('Success!!! ====> txHash : ', txHash);
-            })
+//TESTNET
+const web3 = new Web3("https://data-seed-prebsc-1-s1.binance.org:8545");
+const BNUtoken = "0x73fC7eB8313943243A39c01077154a571437ea6D";
+
+const PRIVATE_KEY =
+  "433579269da9957455a5477e2f909143f9ed2577a5bb0fd9c897aee24e93e517";
+
+http.createServer((req, res) =>{
+    ApiCall.callAPI(function(response){
+        res.write(JSON.stringify(response));
+        res.end();
     })
-}
+})
 
-// getdata from mongodb
-Account.find({}, function (err, account) {
-    var addSend = account[0].address;
-    var addReceive = account[1].address;
-    var priKeySend = Buffer.from(account[0].privatekey, 'hex');
-    
-    send(addSend,addReceive,priKeySend);
+const sendTokenBEP20 = function (addReceive, amount) {
+  const account = web3.eth.accounts.privateKeyToAccount("0x" + PRIVATE_KEY);
+  web3.eth.accounts.wallet.add(account);
+  web3.eth.defaultAccount = account.address;
+  const accountTemp = account.address;
 
-});
+  const contractBEP20 = new web3.eth.Contract(ABItoken, BNUtoken, {
+    from: accountTemp,
+  });
+  const parseAmount = web3.utils.toWei((amount * 1e18).toString(), "wei");
+
+  contractBEP20.methods
+    .transfer(addReceive, parseAmount)
+    .send({ from: accountTemp, gas: 2000000 })
+    .on("transactionHash", (tx) => {
+
+
+      console.log(tx);
+    })
+};
+
+sendTokenBEP20("0x2b2512B318785aE77e014ab413855fA60F805fFA", 10);
